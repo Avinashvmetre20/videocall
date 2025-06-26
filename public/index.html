@@ -1,28 +1,51 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Video Chat</title>
-  <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Chat with Video</title>
+    <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <h2>bVideo Chat</h2>
+    <div class="chat-container">
+        <div class="sidebar">
+            <h2>Online Users</h2>
+            <ul id="user-list"></ul>
+        </div>
+        <div class="chat-area">
+            <div class="messages" id="messages"></div>
+            <div class="typing-indicator" id="typing-indicator"></div>
+            <div class="message-input">
+                <input type="text" id="message-input" placeholder="Type a message...">
+                <button id="send-button">Send</button>
+            </div>
+        </div>
+    </div>
 
-  <p>Your ID: <span id="myId"></span></p>
+    <div id="username-modal" class="modal">
+        <div class="modal-content">
+            <h2>Enter Your Username</h2>
+            <input type="text" id="username-input" placeholder="Username">
+            <button id="username-submit">Join Chat</button>
+        </div>
+    </div>
 
-<div class="video-section">
-  <video id="localVideo" autoplay muted></video>
-  <video id="remoteVideo" autoplay></video>
-</div>
+    <div id="call-modal" class="modal">
+        <div class="modal-content call-content">
+            <h2 id="call-status">Call Status</h2>
+            <div class="video-container">
+                <video id="remote-video" autoplay playsinline></video>
+                <video id="local-video" autoplay playsinline muted></video>
+            </div>
+            <div id="call-buttons" class="call-buttons">
+                <button id="accept-call">Accept</button>
+                <button id="reject-call">Reject</button>
+            </div>
+            <button id="end-call" class="end-call">End Call</button>
+        </div>
+    </div>
 
-<div class="input-section">
-  <input type="text" id="targetId" placeholder="Target Socket ID" />
-  <button id="callBtn">Call</button>
-</div>
-
-  <h3>Online Users</h3>
-  <ul id="users"></ul>
-
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="script.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/script.js"></script>
 </body>
 </html>
