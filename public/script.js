@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let peerConnection;
   let currentCall = null;
   let users = {};
-  
+
   const rtcConfig = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
@@ -101,7 +101,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       elements.localVideo.srcObject = stream;
 
-      currentCall = userId;
+      currentCall = {
+        userId: userId,  // Store the target user's ID
+        socket: userId,  // For socket communication
+        caller: currentUsername  // Store OUR username as the caller
+      };
+
       elements.callStatus.textContent = `Calling ${users[userId].username}...`;
       elements.callModal.style.display = 'flex';
       elements.callButtonsContainer.style.display = 'none';
@@ -114,7 +119,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       socket.emit('call-user', {
         to: userId,
-        offer: peerConnection.localDescription
+        offer: peerConnection.localDescription,
+        caller: currentUsername  // Send our username with the call
       });
     } catch (error) {
       console.error('Error starting call:', error);
@@ -174,7 +180,14 @@ document.addEventListener('DOMContentLoaded', () => {
         answer: peerConnection.localDescription
       });
 
-      elements.callStatus.textContent = `In call with ${currentCall.caller}`;
+      // When updating call status
+      if (currentCall && currentCall.caller) {
+        elements.callStatus.textContent = `In call with ${currentCall.caller}`;
+      } else {
+        elements.callStatus.textContent = 'In call';
+      }
+      console.log('Call data received:', data);
+      console.log('Current call state:', currentCall);
       elements.callButtonsContainer.style.display = 'none';
       elements.endCallBtn.style.display = 'block';
     } catch (error) {
@@ -198,28 +211,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function resetCallUI() {
     elements.callModal.style.display = 'none';
-    
+
     // Stop all media tracks
     if (elements.localVideo.srcObject) {
       elements.localVideo.srcObject.getTracks().forEach(track => track.stop());
       elements.localVideo.srcObject = null;
     }
-    
+
     elements.remoteVideo.srcObject = null;
-    
+
     // Close peer connection
     if (peerConnection) {
       peerConnection.close();
       peerConnection = null;
     }
-    
+
     currentCall = null;
   }
 
   // Socket event handlers
   socket.on('user-joined', (username) => displaySystemMessage(`${username} joined`));
   socket.on('user-left', (username) => displaySystemMessage(`${username} left`));
-  socket.on('receive-message', ({username, message}) => displayMessage(username, message, 'received'));
+  socket.on('receive-message', ({ username, message }) => displayMessage(username, message, 'received'));
   socket.on('user-typing', (username) => elements.typingIndicator.textContent = `${username} is typing...`);
   socket.on('user-stopped-typing', () => elements.typingIndicator.textContent = '');
   socket.on('call-error', (message) => { alert(message); resetCallUI(); });
@@ -227,12 +240,12 @@ document.addEventListener('DOMContentLoaded', () => {
   socket.on('update-user-list', (usersData) => {
     users = usersData;
     elements.userList.innerHTML = '';
-    
+
     Object.entries(users).forEach(([userId, userData]) => {
       if (userData.username !== currentUsername) {
         const li = document.createElement('li');
         li.textContent = userData.username;
-        
+
         if (!userData.inCall) {
           const callBtn = document.createElement('button');
           callBtn.className = 'call-btn';
@@ -245,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
           status.textContent = ' (in call)';
           li.appendChild(status);
         }
-        
+
         elements.userList.appendChild(li);
       }
     });
@@ -260,10 +273,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     currentCall = {
       socket: data.socket,
-      caller: data.caller,
+      caller: data.caller,  // This now comes from the server
       offer: data.offer
     };
 
+    // Update the call status immediately
     elements.callStatus.textContent = `${data.caller} is calling...`;
     elements.callModal.style.display = 'flex';
     elements.callButtonsContainer.style.display = 'flex';
@@ -275,6 +289,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await peerConnection.setRemoteDescription(
         new RTCSessionDescription(data.answer)
       );
+      // Use the stored caller name from currentCall
       elements.callStatus.textContent = `In call with ${currentCall.caller}`;
     }
   });

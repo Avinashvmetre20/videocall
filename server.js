@@ -52,30 +52,31 @@ io.on('connection', (socket) => {
 
   // Video call handlers
   socket.on('call-user', (data) => {
-    const caller = users[socket.id];
-    const callee = users[data.to];
-    
-    if (!caller || !callee) {
-      socket.emit('call-error', 'User not found');
-      return;
-    }
-    
-    if (caller.inCall || callee.inCall) {
-      socket.emit('call-error', 'User is already in a call');
-      return;
-    }
+  const caller = users[socket.id];
+  const callee = users[data.to];
+  
+  if (!caller || !callee) {
+    socket.emit('call-error', 'User not found');
+    return;
+  }
+  
+  if (caller.inCall || callee.inCall) {
+    socket.emit('call-error', 'User is already in a call');
+    return;
+  }
 
-    users[socket.id].inCall = true;
-    users[data.to].inCall = true;
-    
-    io.to(data.to).emit('call-made', {
-      offer: data.offer,
-      socket: socket.id,
-      caller: caller.username
-    });
-    
-    io.emit('update-user-list', getUsersList());
+  users[socket.id].inCall = true;
+  users[data.to].inCall = true;
+  
+  // Include the caller's username in the call data
+  io.to(data.to).emit('call-made', {
+    offer: data.offer,
+    socket: socket.id,
+    caller: caller.username  // Send the actual caller's username
   });
+  
+  io.emit('update-user-list', getUsersList());
+});
 
   socket.on('make-answer', (data) => {
     io.to(data.to).emit('answer-made', {
