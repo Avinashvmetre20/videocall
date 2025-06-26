@@ -8,9 +8,9 @@ const servers = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     {
-      urls: 'turn:relay1.expressturn.com:3478',
-      username: 'Amar', // replace
-      credential: '1234' // replace
+      urls: 'relay1.expressturn.com:3480',
+      username: '000000002066291654', // replace
+      credential: '5cGnz0UAF77juPf6Ju+ZJ121btE=' // replace
     }
   ]
 };
