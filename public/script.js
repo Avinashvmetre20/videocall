@@ -102,28 +102,42 @@ document.addEventListener('DOMContentLoaded', () => {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
   }
 
-  // Video call functions
-  function createPeerConnection() {
-    peerConnection = new RTCPeerConnection(configuration);
+// Updated createPeerConnection function
+function createPeerConnection() {
+    console.log('Creating peer connection');
+    peerConnection = new RTCPeerConnection({
+        iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' }
+        ]
+    });
 
     peerConnection.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket.emit('ice-candidate', {
-          to: currentCall,
-          candidate: event.candidate
-        });
-      }
+        if (event.candidate) {
+            console.log('Sending ICE candidate');
+            socket.emit('ice-candidate', {
+                to: currentCall,
+                candidate: event.candidate
+            });
+        }
     };
 
     peerConnection.ontrack = (event) => {
-      remoteVideo.srcObject = event.streams[0];
+        console.log('Received remote track');
+        if (!remoteVideo.srcObject) {
+            remoteVideo.srcObject = event.streams[0];
+        }
     };
 
-    // Add local stream to peer connection
-    localVideo.srcObject.getTracks().forEach(track => {
-      peerConnection.addTrack(track, localVideo.srcObject);
-    });
-  }
+    // Add local stream tracks
+    if (localVideo.srcObject) {
+        localVideo.srcObject.getTracks().forEach(track => {
+            console.log('Adding local track:', track.kind);
+            peerConnection.addTrack(track, localVideo.srcObject);
+        });
+    }
+}
 
   async function startCall(userId) {
     try {
@@ -157,30 +171,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function acceptCall() {
+// Updated acceptCall function
+async function acceptCall() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      localVideo.srcObject = stream;
-
-      createPeerConnection();
-      await peerConnection.setRemoteDescription(currentCall.offer);
-
-      const answer = await peerConnection.createAnswer();
-      await peerConnection.setLocalDescription(answer);
-
-      socket.emit('make-answer', {
-        to: currentCall.socket,
-        answer: peerConnection.localDescription
-      });
-
-      callStatus.textContent = `In call with ${currentCall.caller}`;
-      callButtonsContainer.style.display = 'none';
-      endCallBtn.style.display = 'block';
+        console.log('Accepting call');
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: true, 
+            audio: true 
+        });
+        localVideo.srcObject = stream;
+        
+        createPeerConnection();
+        
+        console.log('Setting remote description');
+        await peerConnection.setRemoteDescription(
+            new RTCSessionDescription(currentCall.offer)
+        );
+        
+        console.log('Creating answer');
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        
+        console.log('Sending answer');
+        socket.emit('make-answer', {
+            to: currentCall.socket,
+            answer: peerConnection.localDescription
+        });
+        
+        callStatus.textContent = `In call with ${currentCall.caller}`;
+        callButtonsContainer.style.display = 'none';
+        endCallBtn.style.display = 'block';
     } catch (error) {
-      console.error('Error accepting call:', error);
-      alert('Could not accept call. Please check your camera and microphone permissions.');
+        console.error('Error accepting call:', error);
+        alert('Error accepting call: ' + error.message);
     }
-  }
+}
 
   function rejectCall() {
     if (!currentCall) return;

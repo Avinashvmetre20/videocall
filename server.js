@@ -39,43 +39,43 @@ io.on('connection', (socket) => {
     });
 
     // Video call handlers with proper error checking
-    socket.on('call-user', (data) => {
-        const caller = users[socket.id];
-        const callee = users[data.to];
-        
-        if (!caller || !callee) {
-            socket.emit('call-error', 'User not found');
-            return;
-        }
-        
-        if (caller.inCall || callee.inCall) {
-            socket.emit('call-error', 'User is already in a call');
-            return;
-        }
+socket.on('call-user', (data) => {
+    console.log(`Call attempt from ${socket.id} to ${data.to}`);
+    const caller = users[socket.id];
+    const callee = users[data.to];
+    
+    if (!caller || !callee) {
+        console.log('User not found');
+        socket.emit('call-error', 'User not found');
+        return;
+    }
+    
+    if (caller.inCall || callee.inCall) {
+        console.log('User already in call');
+        socket.emit('call-error', 'User is already in a call');
+        return;
+    }
 
-        users[socket.id].inCall = true;
-        users[data.to].inCall = true;
-        
-        io.to(data.to).emit('call-made', {
-            offer: data.offer,
-            socket: socket.id,
-            caller: caller.username
-        });
-        
-        io.emit('update-user-list', getUsersList());
+    users[socket.id].inCall = true;
+    users[data.to].inCall = true;
+    
+    console.log(`Call from ${caller.username} to ${callee.username}`);
+    io.to(data.to).emit('call-made', {
+        offer: data.offer,
+        socket: socket.id,
+        caller: caller.username
     });
+    
+    io.emit('update-user-list', getUsersList());
+});
 
     socket.on('make-answer', (data) => {
-        if (!users[data.to] || !users[socket.id]) {
-            socket.emit('call-error', 'User not found');
-            return;
-        }
-        
-        io.to(data.to).emit('answer-made', {
-            socket: socket.id,
-            answer: data.answer
-        });
+    console.log(`Answer from ${socket.id} to ${data.to}`);
+    io.to(data.to).emit('answer-made', {
+        socket: socket.id,
+        answer: data.answer
     });
+});
 
     socket.on('reject-call', (data) => {
         if (users[socket.id]) {
@@ -136,6 +136,11 @@ function getUsersList() {
         return acc;
     }, {});
 }
+
+// Serve favicon
+app.get('/favicon.ico', (req, res) => {
+    res.status(204).end();
+});
 
 const PORT =8080;
 server.listen(PORT, () => {
