@@ -1,25 +1,27 @@
 document.addEventListener('DOMContentLoaded', () => {
   // DOM elements
-  const usernameModal = document.getElementById('username-modal');
-  const usernameInput = document.getElementById('username-input');
-  const usernameSubmit = document.getElementById('username-submit');
-  const messageInput = document.getElementById('message-input');
-  const sendButton = document.getElementById('send-button');
-  const messagesContainer = document.getElementById('messages');
-  const typingIndicator = document.getElementById('typing-indicator');
-  const userList = document.getElementById('user-list');
-  const callModal = document.getElementById('call-modal');
-  const callStatus = document.getElementById('call-status');
-  const acceptCallBtn = document.getElementById('accept-call');
-  const rejectCallBtn = document.getElementById('reject-call');
-  const endCallBtn = document.getElementById('end-call');
-  const localVideo = document.getElementById('local-video');
-  const remoteVideo = document.getElementById('remote-video');
-  const callButtonsContainer = document.getElementById('call-buttons');
+  const elements = {
+    usernameModal: document.getElementById('username-modal'),
+    usernameInput: document.getElementById('username-input'),
+    usernameSubmit: document.getElementById('username-submit'),
+    messageInput: document.getElementById('message-input'),
+    sendButton: document.getElementById('send-button'),
+    messagesContainer: document.getElementById('messages'),
+    typingIndicator: document.getElementById('typing-indicator'),
+    userList: document.getElementById('user-list'),
+    callModal: document.getElementById('call-modal'),
+    callStatus: document.getElementById('call-status'),
+    acceptCallBtn: document.getElementById('accept-call'),
+    rejectCallBtn: document.getElementById('reject-call'),
+    endCallBtn: document.getElementById('end-call'),
+    localVideo: document.getElementById('local-video'),
+    remoteVideo: document.getElementById('remote-video'),
+    callButtonsContainer: document.getElementById('call-buttons')
+  };
 
   // Show username modal initially
-  usernameModal.style.display = 'flex';
-  callModal.style.display = 'none';
+  elements.usernameModal.style.display = 'flex';
+  elements.callModal.style.display = 'none';
 
   // Connect to Socket.IO server
   const socket = io();
@@ -28,135 +30,84 @@ document.addEventListener('DOMContentLoaded', () => {
   let peerConnection;
   let currentCall = null;
   let users = {};
-  const configuration = {
+  
+  const rtcConfig = {
     iceServers: [
       { urls: 'stun:stun.l.google.com:19302' },
-      { urls: 'stun:stun1.l.google.com:19302' }
+      { urls: 'stun:stun1.l.google.com:19302' },
+      { urls: 'stun:stun2.l.google.com:19302' }
     ]
   };
 
-  // Join chat when username is submitted
-  usernameSubmit.addEventListener('click', () => {
-    const username = usernameInput.value.trim();
+  // Event listeners
+  elements.usernameSubmit.addEventListener('click', joinChat);
+  elements.messageInput.addEventListener('keypress', (e) => e.key === 'Enter' && sendMessage());
+  elements.sendButton.addEventListener('click', sendMessage);
+  elements.messageInput.addEventListener('input', handleTyping);
+  elements.acceptCallBtn.addEventListener('click', acceptCall);
+  elements.rejectCallBtn.addEventListener('click', rejectCall);
+  elements.endCallBtn.addEventListener('click', endCall);
+
+  function joinChat() {
+    const username = elements.usernameInput.value.trim();
     if (username) {
       currentUsername = username;
       socket.emit('new-user-joined', username);
-      usernameModal.style.display = 'none';
+      elements.usernameModal.style.display = 'none';
     }
-  });
-
-  // Send message when Send button is clicked
-  sendButton.addEventListener('click', sendMessage);
-
-  // Also allow Enter key to send message
-  messageInput.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendMessage();
-  });
-
-  // Show typing indicator when user is typing
-  messageInput.addEventListener('input', () => {
-    if (messageInput.value.trim()) {
-      socket.emit('typing');
-    } else {
-      socket.emit('stop-typing');
-    }
-  });
-
-  // Call handlers
-  acceptCallBtn.addEventListener('click', acceptCall);
-  rejectCallBtn.addEventListener('click', rejectCall);
-  endCallBtn.addEventListener('click', endCall);
+  }
 
   function sendMessage() {
-    const message = messageInput.value.trim();
+    const message = elements.messageInput.value.trim();
     if (message) {
       socket.emit('send-message', message);
       displayMessage(currentUsername, message, 'sent');
-      messageInput.value = '';
+      elements.messageInput.value = '';
+      socket.emit('stop-typing');
+    }
+  }
+
+  function handleTyping() {
+    if (elements.messageInput.value.trim()) {
+      socket.emit('typing');
+    } else {
       socket.emit('stop-typing');
     }
   }
 
   function displayMessage(username, message, type) {
     const messageElement = document.createElement('div');
-    messageElement.classList.add('message', type);
-
-    const infoElement = document.createElement('div');
-    infoElement.classList.add('message-info');
-    infoElement.textContent = username;
-
-    const textElement = document.createElement('div');
-    textElement.textContent = message;
-
-    messageElement.appendChild(infoElement);
-    messageElement.appendChild(textElement);
-    messagesContainer.appendChild(messageElement);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    messageElement.className = `message ${type}`;
+    messageElement.innerHTML = `
+      <div class="message-info">${username}</div>
+      <div>${message}</div>
+    `;
+    elements.messagesContainer.appendChild(messageElement);
+    elements.messagesContainer.scrollTop = elements.messagesContainer.scrollHeight;
   }
 
   function displaySystemMessage(message) {
-    const messageElement = document.createElement('div');
-    messageElement.classList.add('message', 'system');
-    messageElement.textContent = message;
-    messagesContainer.appendChild(messageElement);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    displayMessage('System', message, 'system');
   }
 
-// Updated createPeerConnection function
-function createPeerConnection() {
-    console.log('Creating peer connection');
-    peerConnection = new RTCPeerConnection({
-        iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' },
-            { urls: 'stun:stun2.l.google.com:19302' }
-        ]
-    });
-
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate) {
-            console.log('Sending ICE candidate');
-            socket.emit('ice-candidate', {
-                to: currentCall,
-                candidate: event.candidate
-            });
-        }
-    };
-
-    peerConnection.ontrack = (event) => {
-        console.log('Received remote track');
-        if (!remoteVideo.srcObject) {
-            remoteVideo.srcObject = event.streams[0];
-        }
-    };
-
-    // Add local stream tracks
-    if (localVideo.srcObject) {
-        localVideo.srcObject.getTracks().forEach(track => {
-            console.log('Adding local track:', track.kind);
-            peerConnection.addTrack(track, localVideo.srcObject);
-        });
-    }
-}
-
+  // Video call functions
   async function startCall(userId) {
     try {
-      // Check if user is available
       if (!users[userId] || users[userId].inCall) {
         alert('User is not available for calling');
         return;
       }
 
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      localVideo.srcObject = stream;
+      elements.localVideo.srcObject = stream;
 
       currentCall = userId;
-      callStatus.textContent = `Calling ${users[userId].username}...`;
-      callModal.style.display = 'flex';
-      callButtonsContainer.style.display = 'none';
-      endCallBtn.style.display = 'block';
+      elements.callStatus.textContent = `Calling ${users[userId].username}...`;
+      elements.callModal.style.display = 'flex';
+      elements.callButtonsContainer.style.display = 'none';
+      elements.endCallBtn.style.display = 'block';
 
-      createPeerConnection();
+      createPeerConnection(stream);
 
       const offer = await peerConnection.createOffer();
       await peerConnection.setLocalDescription(offer);
@@ -167,139 +118,135 @@ function createPeerConnection() {
       });
     } catch (error) {
       console.error('Error starting call:', error);
-      alert('Could not start call. Please check your camera and microphone permissions.');
+      alert('Could not start call. Please check your permissions.');
+      resetCallUI();
     }
   }
 
-// Updated acceptCall function
-async function acceptCall() {
+  function createPeerConnection(stream) {
+    peerConnection = new RTCPeerConnection(rtcConfig);
+
+    // Add local stream tracks
+    stream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, stream);
+    });
+
+    // Remote stream handler
+    peerConnection.ontrack = (event) => {
+      if (!elements.remoteVideo.srcObject) {
+        elements.remoteVideo.srcObject = event.streams[0];
+      }
+    };
+
+    // ICE candidate handler
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate && currentCall) {
+        socket.emit('ice-candidate', {
+          to: currentCall,
+          candidate: event.candidate
+        });
+      }
+    };
+
+    // Connection state handling
+    peerConnection.onconnectionstatechange = () => {
+      if (peerConnection.connectionState === 'disconnected') {
+        endCall();
+      }
+    };
+  }
+
+  async function acceptCall() {
     try {
-        console.log('Accepting call');
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: true, 
-            audio: true 
-        });
-        localVideo.srcObject = stream;
-        
-        createPeerConnection();
-        
-        console.log('Setting remote description');
-        await peerConnection.setRemoteDescription(
-            new RTCSessionDescription(currentCall.offer)
-        );
-        
-        console.log('Creating answer');
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        
-        console.log('Sending answer');
-        socket.emit('make-answer', {
-            to: currentCall.socket,
-            answer: peerConnection.localDescription
-        });
-        
-        callStatus.textContent = `In call with ${currentCall.caller}`;
-        callButtonsContainer.style.display = 'none';
-        endCallBtn.style.display = 'block';
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      elements.localVideo.srcObject = stream;
+
+      createPeerConnection(stream);
+      await peerConnection.setRemoteDescription(
+        new RTCSessionDescription(currentCall.offer)
+      );
+
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+
+      socket.emit('make-answer', {
+        to: currentCall.socket,
+        answer: peerConnection.localDescription
+      });
+
+      elements.callStatus.textContent = `In call with ${currentCall.caller}`;
+      elements.callButtonsContainer.style.display = 'none';
+      elements.endCallBtn.style.display = 'block';
     } catch (error) {
-        console.error('Error accepting call:', error);
-        alert('Error accepting call: ' + error.message);
+      console.error('Error accepting call:', error);
+      alert('Could not accept call. Please check your permissions.');
+      resetCallUI();
     }
-}
+  }
 
   function rejectCall() {
     if (!currentCall) return;
-
-    socket.emit('reject-call', {
-      from: currentCall.socket
-    });
+    socket.emit('reject-call', { from: currentCall.socket });
     resetCallUI();
   }
 
   function endCall() {
-    socket.emit('end-call', {
-      to: currentCall.socket || currentCall
-    });
+    if (!currentCall) return;
+    socket.emit('end-call', { to: currentCall.socket || currentCall });
     resetCallUI();
   }
 
   function resetCallUI() {
-    callModal.style.display = 'none';
-    currentCall = null;
-
+    elements.callModal.style.display = 'none';
+    
+    // Stop all media tracks
+    if (elements.localVideo.srcObject) {
+      elements.localVideo.srcObject.getTracks().forEach(track => track.stop());
+      elements.localVideo.srcObject = null;
+    }
+    
+    elements.remoteVideo.srcObject = null;
+    
+    // Close peer connection
     if (peerConnection) {
       peerConnection.close();
       peerConnection = null;
     }
-
-    if (localVideo.srcObject) {
-      localVideo.srcObject.getTracks().forEach(track => track.stop());
-      localVideo.srcObject = null;
-    }
-
-    remoteVideo.srcObject = null;
+    
+    currentCall = null;
   }
 
-  // Socket.io event listeners
-  socket.on('user-joined', (username) => {
-    displaySystemMessage(`${username} joined the chat`);
-  });
-
-  socket.on('user-left', (username) => {
-    displaySystemMessage(`${username} left the chat`);
-  });
-
-  socket.on('receive-message', ({ username, message }) => {
-    displayMessage(username, message, 'received');
-  });
-
-  socket.on('user-typing', (username) => {
-    typingIndicator.textContent = `${username} is typing...`;
-  });
-
-  socket.on('user-stopped-typing', () => {
-    typingIndicator.textContent = '';
-  });
-
-  socket.on('request-user-list', () => {
-    socket.emit('update-user-list', users);
-  });
-
-  socket.on('call-error', (message) => {
-    alert(`Call error: ${message}`);
-    resetCallUI();
-  });
+  // Socket event handlers
+  socket.on('user-joined', (username) => displaySystemMessage(`${username} joined`));
+  socket.on('user-left', (username) => displaySystemMessage(`${username} left`));
+  socket.on('receive-message', ({username, message}) => displayMessage(username, message, 'received'));
+  socket.on('user-typing', (username) => elements.typingIndicator.textContent = `${username} is typing...`);
+  socket.on('user-stopped-typing', () => elements.typingIndicator.textContent = '');
+  socket.on('call-error', (message) => { alert(message); resetCallUI(); });
 
   socket.on('update-user-list', (usersData) => {
-    users = usersData; // Store the complete users data
-    userList.innerHTML = '';
-
+    users = usersData;
+    elements.userList.innerHTML = '';
+    
     Object.entries(users).forEach(([userId, userData]) => {
       if (userData.username !== currentUsername) {
         const li = document.createElement('li');
         li.textContent = userData.username;
-
-        // Add call button if user is not in a call
+        
         if (!userData.inCall) {
           const callBtn = document.createElement('button');
           callBtn.className = 'call-btn';
           callBtn.innerHTML = '📞';
-          callBtn.onclick = () => {
-            if (!users[userId].inCall) {
-              startCall(userId);
-            } else {
-              alert('User is currently in another call');
-            }
-          };
+          callBtn.onclick = () => startCall(userId);
           li.appendChild(callBtn);
         } else {
-          const statusSpan = document.createElement('span');
-          statusSpan.className = 'call-status';
-          statusSpan.textContent = ' (in call)';
-          li.appendChild(statusSpan);
+          const status = document.createElement('span');
+          status.className = 'call-status';
+          status.textContent = ' (in call)';
+          li.appendChild(status);
         }
-
-        userList.appendChild(li);
+        
+        elements.userList.appendChild(li);
       }
     });
   });
@@ -317,24 +264,24 @@ async function acceptCall() {
       offer: data.offer
     };
 
-    callStatus.textContent = `${data.caller} is calling...`;
-    callModal.style.display = 'flex';
-    callButtonsContainer.style.display = 'flex';
-    endCallBtn.style.display = 'none';
+    elements.callStatus.textContent = `${data.caller} is calling...`;
+    elements.callModal.style.display = 'flex';
+    elements.callButtonsContainer.style.display = 'flex';
+    elements.endCallBtn.style.display = 'none';
   });
 
-  socket.on('answer-made', (data) => {
+  socket.on('answer-made', async (data) => {
     if (peerConnection) {
-      peerConnection.setRemoteDescription(data.answer);
-      callStatus.textContent = `In call with ${users[data.socket]?.username || 'Unknown'}`;
+      await peerConnection.setRemoteDescription(
+        new RTCSessionDescription(data.answer)
+      );
+      elements.callStatus.textContent = `In call with ${currentCall.caller}`;
     }
   });
 
   socket.on('call-rejected', () => {
     alert('Call was rejected');
     resetCallUI();
-    // Force update user list
-    socket.emit('request-user-list');
   });
 
   socket.on('call-ended', () => {
@@ -342,9 +289,15 @@ async function acceptCall() {
     resetCallUI();
   });
 
-  socket.on('ice-candidate', (data) => {
+  socket.on('ice-candidate', async (data) => {
     if (peerConnection && data.candidate) {
-      peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+      try {
+        await peerConnection.addIceCandidate(
+          new RTCIceCandidate(data.candidate)
+        );
+      } catch (error) {
+        console.error('Error adding ICE candidate:', error);
+      }
     }
   });
 });

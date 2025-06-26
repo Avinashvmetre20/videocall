@@ -5,144 +5,118 @@ const path = require('path');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server);
+const io = socketIo(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 
 const users = {};
 
+function getUsersList() {
+  return Object.entries(users).reduce((acc, [id, user]) => {
+    acc[id] = { username: user.username, inCall: user.inCall };
+    return acc;
+  }, {});
+}
+
 io.on('connection', (socket) => {
-    console.log('New user connected');
+  console.log('New user connected:', socket.id);
 
-    socket.on('new-user-joined', (username) => {
-        users[socket.id] = { username, inCall: false };
-        socket.broadcast.emit('user-joined', username);
-        io.emit('update-user-list', getUsersList());
-    });
+  socket.on('new-user-joined', (username) => {
+    users[socket.id] = { username, inCall: false };
+    socket.broadcast.emit('user-joined', username);
+    io.emit('update-user-list', getUsersList());
+  });
 
-    socket.on('send-message', (message) => {
-        const username = users[socket.id]?.username;
-        if (username) {
-            socket.broadcast.emit('receive-message', { username, message });
-        }
-    });
+  socket.on('send-message', (message) => {
+    const username = users[socket.id]?.username;
+    if (username) {
+      socket.broadcast.emit('receive-message', { username, message });
+    }
+  });
 
-    socket.on('typing', () => {
-        const username = users[socket.id]?.username;
-        if (username) {
-            socket.broadcast.emit('user-typing', username);
-        }
-    });
+  socket.on('typing', () => {
+    const username = users[socket.id]?.username;
+    if (username) {
+      socket.broadcast.emit('user-typing', username);
+    }
+  });
 
-    socket.on('stop-typing', () => {
-        socket.broadcast.emit('user-stopped-typing');
-    });
+  socket.on('stop-typing', () => {
+    socket.broadcast.emit('user-stopped-typing');
+  });
 
-    // Video call handlers with proper error checking
-socket.on('call-user', (data) => {
-    console.log(`Call attempt from ${socket.id} to ${data.to}`);
+  // Video call handlers
+  socket.on('call-user', (data) => {
     const caller = users[socket.id];
     const callee = users[data.to];
     
     if (!caller || !callee) {
-        console.log('User not found');
-        socket.emit('call-error', 'User not found');
-        return;
+      socket.emit('call-error', 'User not found');
+      return;
     }
     
     if (caller.inCall || callee.inCall) {
-        console.log('User already in call');
-        socket.emit('call-error', 'User is already in a call');
-        return;
+      socket.emit('call-error', 'User is already in a call');
+      return;
     }
 
     users[socket.id].inCall = true;
     users[data.to].inCall = true;
     
-    console.log(`Call from ${caller.username} to ${callee.username}`);
     io.to(data.to).emit('call-made', {
-        offer: data.offer,
-        socket: socket.id,
-        caller: caller.username
+      offer: data.offer,
+      socket: socket.id,
+      caller: caller.username
     });
     
     io.emit('update-user-list', getUsersList());
-});
+  });
 
-    socket.on('make-answer', (data) => {
-    console.log(`Answer from ${socket.id} to ${data.to}`);
+  socket.on('make-answer', (data) => {
     io.to(data.to).emit('answer-made', {
-        socket: socket.id,
-        answer: data.answer
+      socket: socket.id,
+      answer: data.answer
     });
+  });
+
+  socket.on('reject-call', (data) => {
+    if (users[socket.id]) users[socket.id].inCall = false;
+    if (users[data.from]) users[data.from].inCall = false;
+    
+    io.to(data.from).emit('call-rejected', { socket: socket.id });
+    io.emit('update-user-list', getUsersList());
+  });
+
+  socket.on('end-call', (data) => {
+    if (users[socket.id]) users[socket.id].inCall = false;
+    if (users[data.to]) users[data.to].inCall = false;
+    
+    io.to(data.to).emit('call-ended', { socket: socket.id });
+    io.emit('update-user-list', getUsersList());
+  });
+
+  socket.on('ice-candidate', (data) => {
+    if (users[data.to]) {
+      io.to(data.to).emit('ice-candidate', { candidate: data.candidate });
+    }
+  });
+
+  socket.on('disconnect', () => {
+    const user = users[socket.id];
+    if (user) {
+      socket.broadcast.emit('user-left', user.username);
+      delete users[socket.id];
+      io.emit('update-user-list', getUsersList());
+    }
+  });
 });
 
-    socket.on('reject-call', (data) => {
-        if (users[socket.id]) {
-            users[socket.id].inCall = false;
-        }
-        if (users[data.from]) {
-            users[data.from].inCall = false;
-        }
-        
-        io.to(data.from).emit('call-rejected', {
-            socket: socket.id
-        });
-        
-        io.emit('update-user-list', getUsersList());
-    });
-
-    socket.on('end-call', (data) => {
-        if (users[socket.id]) {
-            users[socket.id].inCall = false;
-        }
-        if (users[data.to]) {
-            users[data.to].inCall = false;
-        }
-        
-        io.to(data.to).emit('call-ended', {
-            socket: socket.id
-        });
-        
-        io.emit('update-user-list', getUsersList());
-    });
-
-    socket.on('ice-candidate', (data) => {
-        if (users[data.to]) {
-            io.to(data.to).emit('ice-candidate', {
-                candidate: data.candidate
-            });
-        }
-    });
-
-    socket.on('disconnect', () => {
-        const user = users[socket.id];
-        if (user) {
-            socket.broadcast.emit('user-left', user.username);
-            delete users[socket.id];
-            io.emit('update-user-list', getUsersList());
-        }
-    });
-
-    socket.on('request-user-list', () => {
-        socket.emit('update-user-list', getUsersList());
-    });
-});
-
-// Helper function to get users list
-function getUsersList() {
-    return Object.entries(users).reduce((acc, [id, user]) => {
-        acc[id] = { username: user.username, inCall: user.inCall };
-        return acc;
-    }, {});
-}
-
-// Serve favicon
-app.get('/favicon.ico', (req, res) => {
-    res.status(204).end();
-});
-
-const PORT =8080;
+const PORT = 8080;
 server.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });

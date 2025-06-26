@@ -2,25 +2,26 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Arial', sans-serif;
+    font-family: Arial, sans-serif;
 }
 
 body {
-    background-color: #f5f5f5;
+    background: #f5f5f5;
+    height: 100vh;
 }
 
 .chat-container {
     display: flex;
+    height: 100vh;
     max-width: 1200px;
     margin: 0 auto;
-    height: 100vh;
-    background-color: #fff;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    background: white;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
 
 .sidebar {
     width: 250px;
-    background-color: #2c3e50;
+    background: #2c3e50;
     color: white;
     padding: 20px;
     overflow-y: auto;
@@ -37,7 +38,23 @@ body {
 
 #user-list li {
     padding: 8px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.call-btn {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 1.2rem;
+}
+
+.call-status {
+    color: #ccc;
+    font-size: 0.8rem;
 }
 
 .chat-area {
@@ -50,7 +67,7 @@ body {
     flex: 1;
     padding: 20px;
     overflow-y: auto;
-    background-color: #f9f9f9;
+    background: #f9f9f9;
 }
 
 .message {
@@ -62,23 +79,31 @@ body {
 }
 
 .message.sent {
-    background-color: #007bff;
+    background: #007bff;
     color: white;
     margin-left: auto;
     border-bottom-right-radius: 0;
 }
 
 .message.received {
-    background-color: #e9ecef;
-    color: black;
+    background: #e9ecef;
     margin-right: auto;
     border-bottom-left-radius: 0;
+}
+
+.message.system {
+    background: transparent;
+    color: #666;
+    text-align: center;
+    font-style: italic;
+    margin: 10px auto;
 }
 
 .message-info {
     font-size: 0.8rem;
     margin-bottom: 5px;
-    color: #666;
+    color: inherit;
+    opacity: 0.8;
 }
 
 .typing-indicator {
@@ -91,7 +116,7 @@ body {
 .message-input {
     display: flex;
     padding: 15px;
-    background-color: #fff;
+    background: white;
     border-top: 1px solid #ddd;
 }
 
@@ -107,7 +132,7 @@ body {
 .message-input button {
     margin-left: 10px;
     padding: 10px 20px;
-    background-color: #007bff;
+    background: #007bff;
     color: white;
     border: none;
     border-radius: 20px;
@@ -116,59 +141,30 @@ body {
 }
 
 .message-input button:hover {
-    background-color: #0056b3;
+    background: #0056b3;
 }
 
 .modal {
-    display: flex;
+    display: none;
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
+    background: rgba(0,0,0,0.5);
     justify-content: center;
     align-items: center;
     z-index: 1000;
 }
 
 .modal-content {
-    background-color: white;
+    background: white;
     padding: 30px;
     border-radius: 10px;
     width: 400px;
     max-width: 90%;
     text-align: center;
 }
-
-.modal h2 {
-    margin-bottom: 20px;
-}
-
-.modal input {
-    width: 100%;
-    padding: 10px;
-    margin-bottom: 20px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    font-size: 1rem;
-}
-
-.modal button {
-    padding: 10px 20px;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 1rem;
-}
-
-.modal button:hover {
-    background-color: #0056b3;
-}
-
-/* Previous styles remain the same, add these new styles */
 
 .call-content {
     width: 80%;
@@ -179,8 +175,8 @@ body {
     position: relative;
     width: 100%;
     height: 400px;
+    background: black;
     margin: 20px 0;
-    background: #000;
     border-radius: 8px;
     overflow: hidden;
 }
@@ -195,11 +191,11 @@ body {
     position: absolute;
     bottom: 20px;
     right: 20px;
-    width: 150px;
-    height: 100px;
+    width: 120px;
+    height: 90px;
+    border: 2px solid white;
     border-radius: 4px;
     object-fit: cover;
-    border: 2px solid white;
 }
 
 .call-buttons {
@@ -218,20 +214,20 @@ body {
 }
 
 #accept-call {
-    background-color: #4CAF50;
+    background: #4CAF50;
     color: white;
 }
 
 #reject-call {
-    background-color: #f44336;
+    background: #f44336;
     color: white;
 }
 
 .end-call {
-    display: none;
+    display: block;
     margin: 0 auto;
     padding: 10px 30px;
-    background-color: #f44336;
+    background: #f44336;
     color: white;
     border: none;
     border-radius: 5px;
@@ -239,46 +235,22 @@ body {
     font-size: 16px;
 }
 
-.call-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    margin-left: 10px;
-    font-size: 16px;
-}
-
-.call-btn:hover {
-    color: #007bff;
-}
-
-/* Responsive adjustments */
 @media (max-width: 768px) {
+    .chat-container {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        height: 200px;
+    }
+    
     .video-container {
         height: 300px;
     }
     
     #local-video {
-        width: 100px;
-        height: 75px;
+        width: 80px;
+        height: 60px;
     }
-}
-
-.call-status {
-    color: #888;
-    font-size: 0.8em;
-    margin-left: 5px;
-}
-
-.call-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    margin-left: 10px;
-    font-size: 16px;
-    color: #007bff;
-}
-
-.call-btn:disabled {
-    color: #ccc;
-    cursor: not-allowed;
 }
