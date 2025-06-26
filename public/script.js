@@ -5,7 +5,14 @@ let peerConnection;
 let targetSocketId = "";
 
 const servers = {
-  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    {
+      urls: 'turn:relay1.expressturn.com:3478',
+      username: 'Amar', // replace
+      credential: '1234' // replace
+    }
+  ]
 };
 
 const localVideo = document.getElementById('localVideo');
